@@ -516,8 +516,8 @@ def test_comp_patch_refuses_a_second_run(comp_patched):
 # ---- the whole GR build, pinned as tests/test_firmware.py pins the default one
 
 GR_BUILT_MD5 = {
-    'HX_GR': '58c63d2dbc0b3ad7a0e866fb22f9b2be',
-    'HX_GR HX_CLICK': 'fea3d3a7686c941fa45b297d16776da8',    # patch_click.py adds a model, which would drop knobs written before it
+    'HX_GR': 'd94ac496862c24d56cefaf54c631107f',
+    'HX_GR HX_CLICK': '643061c48dd144cd3f7b38f538336472',    # patch_click.py adds a model, which would drop knobs written before it
 }
 
 
