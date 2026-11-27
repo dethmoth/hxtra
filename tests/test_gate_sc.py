@@ -265,7 +265,7 @@ def test_dsp_sits_at_the_bottom_of_the_room():
     usb_dm, _ = block3.place('HX_USB_MONITOR', env)
     assert pg.nw(pm + n_pm) <= usb_dm and dm >= block3.room(2)[0]
     after = block3.FEATURES[block3.FEATURES.index(('HX_GATE_SC', 'patch_sidechain')) + 1:]
-    assert [f for f, _ in after] == ['HX_MIDI_BLOCK'], 'only the MIDI block below it: code only, at the very bottom'
+    assert [f for f, _ in after] == ['HX_MIDI_BLOCK', 'HX_PHONES_BLOCK'], 'only the added blocks below it'
 
 
 # ---- the firmware tools/patch_sidechain.py builds
@@ -413,7 +413,7 @@ def test_after_the_fx_gate_and_before_the_gr_knobs():
 
 SC_BUILT_MD5 = {
     'HX_GATE_SC': 'd77b54023ee0732a8cd56052c962523a',
-    'HX_GATE_SC HX_FX_GATE HX_GR HX_CLICK HX_USB_MONITOR HX_REAL_NAMES': 'b897d92b5e4f06123fb3e2d137f99e57',  # every DSP step
+    'HX_GATE_SC HX_FX_GATE HX_GR HX_CLICK HX_USB_MONITOR HX_REAL_NAMES': '77478700bf513954da8fb726dd8318de',  # every DSP step
 }
 
 
