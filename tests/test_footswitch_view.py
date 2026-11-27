@@ -7,6 +7,7 @@ import pytest
 
 import features
 import setting_ids
+import kit_patch_amp as kit
 from features import footswitch_view as fv
 from firmware import branch_target, built
 
@@ -23,8 +24,9 @@ VIEW, NO_KEY = 5, 0xff
 
 class View:
     def __init__(self, m4emu):
-        code, self.sym = m4emu.assemble('src/m4/footswitch_view.s', MODS, IDS,
-                                        inc={'footswitch_view.inc': f'.equ PID_INFO, {INFO:#x}\n.equ PID_MAX, {fv.PID_MAX}\n'})
+        inc = (f'.equ TAB1_BASE_PTR, {INFO:#x}\n.equ TAB1_CNT_INSN, {INFO + 4:#x}\n'
+               f'.equ TAB2_BASE_PTR, {INFO + 8:#x}\n.equ TAB2_CNT_INSN, {INFO + 12:#x}\n')
+        code, self.sym = m4emu.assemble('src/m4/footswitch_view.s', MODS, IDS, inc={'footswitch_view.inc': inc})
         self.m = m4emu.M4(code, CODE)
         self.requests, self.handlers = [], []
         self.m.stub(REQUEST_VIEW, lambda m: self.requests.append(m.reg('r0')))
@@ -79,6 +81,43 @@ def test_paints_after_every_other_play_view_painter():
     order = [features.name(m) for m in MODS]
     assert order.index('footswitch_view') > max(order.index(n) for n in ('more_snapshots', 'real_names', 'long_press'))
     assert getattr(fv, 'WEB', True) is True, 'in every web build: it takes no DSP'
+
+
+def tables(v, models):
+    """Table 1 and Table 2 in memory, as the tables' pointer literals and count movws point at them: models [(preset ID, name,
+    category)], each with its name index."""
+    t1, t2 = INFO + 0x100, INFO + 0x1000
+    for k, (pid, name, cat) in enumerate(models):
+        v.m.write(t1 + 12 * k, struct.pack('<IHHI', 0x1000 + k, pid, 0, 10))
+        row = bytearray(44)                                             # Table 2 in another order than Table 1
+        row[4:20] = name.ljust(16, b'\0')
+        row[0x15] = cat
+        struct.pack_into('<I', row, 0, 0x1000 + k)
+        v.m.write(t2 + 44 * (len(models) - 1 - k), bytes(row))
+    v.m.u32(INFO, t1)
+    v.m.write(INFO + 4, kit._encode_thumb_movw(3, len(models)))
+    v.m.u32(INFO + 8, t2)
+    v.m.write(INFO + 12, kit._encode_thumb_movw(1, len(models)))
+
+
+def test_a_blocks_row_comes_from_the_tables_at_run_time(m4emu):
+    """model_row: a preset ID through Table 1 to its Table 2 row, wherever the tables are and however many rows they have, so a
+    model added after the menu step (the Metronome 181, the MIDI block 380, the Phones block 381) has its name and category."""
+    v = View(m4emu)
+    models = [(7, b'Scream 808', 2), (181, b'Metronome', 0x19), (380, b'MIDI', 5), (381, b'Phones', 5), (300 + 2 ** 9, b'X', 1)]
+    tables(v, models)
+    for pid, name, cat in models:
+        row = v.m.call(CODE + v.sym['model_row'], pid)
+        assert row and v.m.read(row + 4, 16).rstrip(b'\0') == name and v.m.read(row + 0x15, 1)[0] == cat
+    assert v.m.call(CODE + v.sym['model_row'], 999) == 0
+
+
+@pytest.mark.parametrize('n', (0, 1, 0x1ff, 0x340, 0xffff))
+def test_movw_imm(m4emu, n):
+    v = View(m4emu)
+    for rd in (0, 3, 9):
+        v.m.write(INFO, kit._encode_thumb_movw(rd, n))
+        assert v.m.call(CODE + v.sym['movw_imm'], INFO) == n
 
 
 def test_other_keys_pass(m4emu):

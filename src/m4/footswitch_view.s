@@ -3,7 +3,10 @@
 @ dimmed while the block is off, with the block's name (FS1..FS3: the Play view's own footswitch labels).
 @ VIEW cycles Play -> Edit -> Footswitches -> Play. The screen is drawn over the Play view, which stays the active view under it,
 @ so the footswitches and knobs work as they do in Play. Leaving it reactivates the Play view, which redraws it whole.
-@ footswitch_view.inc (generated) gives PID_INFO (20 bytes per preset model ID 0..PID_MAX: name, 16 bytes; category).
+@ A block's name and category come from the firmware's own model tables as they are at run time (Table 1: name index -> preset model
+@ ID; Table 2: name and category), so a model a later build step adds (the Metronome, the MIDI and Phones blocks) has its tile too,
+@ and a renamed one (Real block names) its new name. footswitch_view.inc (generated) gives the tables' pointer literals and the
+@ movw instructions that hold their row counts, which every add-model step keeps up to date.
 .syntax unified
 .thumb
 .include "footswitch_view.inc"
@@ -502,16 +505,16 @@ vt_found:
     blt vt_done
     ldrb r0, [sp, #5]
     ldrb r1, [sp, #6]
-    orr r4, r0, r1, lsl #8
-    ldr r1, =PID_MAX
-    cmp r4, r1
-    bhi vt_done
-    ldr r1, =PID_INFO
-    movs r0, #20
-    mla r4, r4, r0, r1              @ its name and category
+    orr r0, r0, r1, lsl #8
+    bl model_row                    @ its Table 2 row: the name at +4 (16 bytes), the category at +0x15
+    cbz r0, vt_done
+    adds r4, r0, #4
     ldrb r0, [r4]
     cbz r0, vt_done
-    ldmia r4, {r0-r3}
+    ldr r0, [r4]                    @ the name, word by word: a row is 4-aligned
+    ldr r1, [r4, #4]
+    ldr r2, [r4, #8]
+    ldr r3, [r4, #12]
     stmia r8, {r0-r3}
     movs r0, #0xff
     strb r0, [sp]
@@ -519,7 +522,7 @@ vt_found:
     mov r1, r6
     mov r2, sp
     CALL 0x28e04514                 @ bypassed: 1
-    ldrb r0, [r4, #16]
+    ldrb r0, [r4, #0x11]
     add r1, sp, #0x40
     CALL 0x28d9e01c                 @ the category's colours: lit +0x1c, dimmed +0x20
     ldrb r0, [sp]
@@ -533,6 +536,62 @@ vt_found:
 vt_done:
     add sp, #0x80
     pop {r4-r8, pc}
+
+    .ltorg
+
+@ r0 a preset model ID -> r0 its Table 2 row, or 0: Table 1 {name index, preset ID +4 (16 bits), -, cost} maps the ID to a name
+@ index, Table 2 {name index, name +4, ..., category +0x15} has the row
+model_row:
+    push {r4-r7, lr}
+    mov r7, r0
+    ldr r0, =TAB1_CNT_INSN
+    bl movw_imm
+    mov r5, r0
+    ldr r4, =TAB1_BASE_PTR
+    ldr r4, [r4]
+mr_t1:
+    cbz r5, mr_none
+    ldrh r0, [r4, #4]
+    cmp r0, r7
+    beq mr_t2
+    adds r4, #12
+    subs r5, #1
+    b mr_t1
+mr_t2:
+    ldr r6, [r4]                    @ its name index
+    ldr r0, =TAB2_CNT_INSN
+    bl movw_imm
+    mov r5, r0
+    ldr r4, =TAB2_BASE_PTR
+    ldr r4, [r4]
+mr_t2_scan:
+    cbz r5, mr_none
+    ldr r0, [r4]
+    cmp r0, r6
+    beq mr_found
+    adds r4, #44
+    subs r5, #1
+    b mr_t2_scan
+mr_found:
+    mov r0, r4
+    pop {r4-r7, pc}
+mr_none:
+    movs r0, #0
+    pop {r4-r7, pc}
+
+@ r0 the address of a Thumb-2 movw -> r0 its 16-bit immediate (imm4:i:imm3:imm8)
+movw_imm:
+    ldrh r1, [r0]
+    ldrh r2, [r0, #2]
+    and r0, r1, #0xf
+    lsl r0, r0, #12
+    ubfx r3, r1, #10, #1
+    orr r0, r0, r3, lsl #11
+    ubfx r3, r2, #12, #3
+    orr r0, r0, r3, lsl #8
+    uxtb r3, r2
+    orr r0, r0, r3
+    bx lr
 
     .ltorg
 .balign 4
