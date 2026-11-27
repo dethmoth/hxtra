@@ -18,15 +18,16 @@ def f32(x):
     return struct.unpack('<I', struct.pack('<f', x))[0]
 
 
-def param(slot, name, pid, ty, mn, mx, dflt, meta=(), key=None):
+def param(slot, name, pid, ty, mn, mx, dflt, meta=()):
     """A knob: slot (display order), name (what the knob shows), pid (DM(pid, I0) in the kernel), type (3 float, 2 int), min, max,
-    default, Entry 3 meta [(key, value)], and key, its name in Entry 3 and in presets (default: name without spaces). Entry 3
-    has little room left beside NAM A2 Lite (build.py E3_MAX), and a string it holds already costs nothing: so the keys are
-    stock ones (each with its 'State'), and the names short. build.py checks Entry 3's size on the final image (l6ia_verify --e3-max)."""
+    default, and Entry 3 meta [(key, value)]. Its key in Entry 3 and in presets is name without spaces, which the knob shows as
+    stock knobs show theirs; a name with a space goes in displayNameShort, as 60s Bias Trem's Intensity has 'Intnsty'. No
+    displayName: the Edit view draws a parameter's displayName on a line under the bars, which stock knobs leave empty
+    (stock displayNames are for the synced pairs' second knob) [seen on unit: HD2_EQ and stray letters there]."""
     w = f32 if ty == 3 else (lambda v: v & 0xffffffff)
     raw = [0, 0, 0, ty, slot, w(mn), w(mx), w(dflt)]
-    meta = [('displayName', 7, name)] + [(k, 7, v) for k, v in meta]
-    key = key or name.replace(' ', '')
+    key = name.replace(' ', '')
+    meta = ([('displayNameShort', 7, name)] if key != name else []) + [(k, 7, v) for k, v in meta]
     return {'slot': slot, 'pid': pid, 'name': key, 'type': ty, 'op': kit.NAM_INPUT_OP[ty], 'raw': raw, 'meta': meta,
             'state': key + 'State', 'default_word': raw[7]}
 

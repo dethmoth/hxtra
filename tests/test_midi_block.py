@@ -171,8 +171,8 @@ def test_firmware():
 
 
 MIDI_BUILT_MD5 = {
-    'HX_MIDI_BLOCK': '014a85d3c2e24aa1ba4ee2c4b61c684a',
-    'HX_MIDI_BLOCK HX_CLICK HX_FX_GATE HX_GATE_SC HX_GR HX_USB_MONITOR HX_NAM_SLOTS=1': '26101ad3d9c9bded15da7c27173c20bd',  # beside every DSP option
+    'HX_MIDI_BLOCK': 'd869d90dfbf2d4309cc2b62aabdc392c',
+    'HX_MIDI_BLOCK HX_CLICK HX_FX_GATE HX_GATE_SC HX_GR HX_USB_MONITOR HX_NAM_SLOTS=1': 'd740ca6332da7f63dab928ceb2e82ced',  # beside every DSP option
 }
 
 

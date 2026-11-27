@@ -29,12 +29,11 @@ PRESET_ID = 380                     # fixed for ever: presets store it (tools/fe
 DSP_COST = 10
 P = fx_block.param
 # Chan (All, 1..16), Type (CC, PC), Num (the CC or program number), On and Off (the CC's value as the block turns on and off)
-PARAMS = [P(1, 'Chan', 5, 2, 0, 16, 1, [('displayType', 'list'), ('0', 'All')] + [(str(c), str(c)) for c in range(1, 17)],
-            key='Mode'),
+PARAMS = [P(1, 'Chan', 5, 2, 0, 16, 1, [('displayType', 'list'), ('0', 'All')] + [(str(c), str(c)) for c in range(1, 17)]),
           P(2, 'Type', 6, 2, 0, 1, 0, [('displayType', 'list'), ('0', 'CC'), ('1', 'PC')]),
-          P(3, 'Num', 7, 2, 0, 127, 0, key='Amount'),
-          P(4, 'On', 8, 2, 0, 127, 127, key='High'),
-          P(5, 'Off', 9, 2, 0, 127, 0, key='Low')]
+          P(3, 'Num', 7, 2, 0, 127, 0),
+          P(4, 'On', 8, 2, 0, 127, 127),
+          P(5, 'Off', 9, 2, 0, 127, 0)]
 
 
 def asm(pm):
