@@ -1,7 +1,12 @@
 """tools/features/midi_block.py, src/m4/midi_block.s and tools/patch_midi.py: the look at the preset's blocks in unicorn (a MIDI block
 turning on or off sends its CC, a PC goes only on turning on, All sends on 16 channels, a new preset sends again, other blocks and
 other events are left alone) and the firmware it builds (the post's chain, the model)."""
+import hashlib
+import os
 import struct
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -11,6 +16,7 @@ import patch_midi
 from features import midi_block as mb
 from firmware import branch_target, built
 
+ROOT = Path(__file__).resolve().parent.parent
 MODS = features.load()
 IDS = setting_ids.by_name()
 CODE = 0x28e60000
@@ -162,3 +168,26 @@ def test_firmware():
     read, on = built({'HX_MIDI_BLOCK': '1'}, MODS)
     assert 'midi_block' in on
     assert read(mb.POST, 4) != mb.POST_STOCK and branch_target(mb.POST, read(mb.POST, 4)) > mb.POST
+
+
+MIDI_BUILT_MD5 = {
+    'HX_MIDI_BLOCK': '014a85d3c2e24aa1ba4ee2c4b61c684a',
+    'HX_MIDI_BLOCK HX_CLICK HX_FX_GATE HX_GATE_SC HX_GR HX_USB_MONITOR HX_NAM_SLOTS=1': '26101ad3d9c9bded15da7c27173c20bd',  # beside every DSP option
+}
+
+
+@pytest.mark.firmware
+@pytest.mark.parametrize('flags', MIDI_BUILT_MD5)
+def test_midi_build(tmp_path, flags):
+    """build.py with the MIDI block: ALL OK (Entry 3 within E3_MAX on the final image) and the image pinned."""
+    stock = os.environ.get('HX_STOMP_HXF')
+    if not stock:
+        pytest.skip('HX_STOMP_HXF is not set')
+    out = tmp_path / 'midi.hxf'
+    env = {k: v for k, v in os.environ.items() if not k.startswith('HX_') or k == 'HX_STOMP_HXF'}
+    env |= dict(f.split('=') if '=' in f else (f, '1') for f in flags.split())
+    r = subprocess.run([sys.executable, str(ROOT / 'build.py'), stock, '-o', str(out), '--no-check'],
+                       capture_output=True, text=True, cwd=ROOT, env=env)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'ALL OK' in r.stdout and 'strings and model table back home' in r.stdout
+    assert hashlib.md5(out.read_bytes()).hexdigest() == MIDI_BUILT_MD5[flags]
